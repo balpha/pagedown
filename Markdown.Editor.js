@@ -14,7 +14,8 @@
         uaSniffed = {
             isIE: /msie/.test(nav.userAgent.toLowerCase()),
             isIE_5or6: /msie 6/.test(nav.userAgent.toLowerCase()) || /msie 5/.test(nav.userAgent.toLowerCase()),
-            isOpera: /opera/.test(nav.userAgent.toLowerCase())
+            isOpera: /opera/.test(nav.userAgent.toLowerCase()),
+            isMac: /^mac/.test(nav.userAgent.toLowerCase()),
         };
 
     var defaultsStrings = {
@@ -77,6 +78,7 @@
     // options, if given, can have the following properties:
     //   options.helpButton = { handler: yourEventHandler }
     //   options.strings = { italicexample: "slanted text" }
+    //   options.keyboard = { detectPlatform: boolean }
     //   options.wrapImageInLink = true
     //   options.convertImagesToLinks = true
     // `yourEventHandler` is the click handler for the help button.
@@ -85,6 +87,9 @@
     // `defaultStrings` above, so you can just override some string displayed
     // to the user on a case-by-case basis, or translate all strings to
     // a different language.
+    // `options.keyboard.detectPlatform` will limit command keys on Mac to only
+    // the "meta" key and on non-Mac to only the "ctrl" key, to reduce pollution
+    // of standard keyboard shortcuts.
     //
     // For backwards compatibility reasons, the `options` argument can also
     // be just the `helpButton` object, and `strings.help` can also be set via
@@ -102,6 +107,7 @@
             options = { helpButton: options };
         }
         options.strings = options.strings || {};
+        options.keyboard = options.keyboard || {};
         if (options.helpButton) {
             options.strings.help = options.strings.help || options.helpButton.title;
         }
@@ -150,7 +156,7 @@
                 }
             }
 
-            uiManager = new UIManager(idPostfix, panels, undoManager, previewManager, commandManager, options.helpButton, getString);
+            uiManager = new UIManager(idPostfix, panels, undoManager, previewManager, commandManager, options.helpButton, getString,, options.keyboard);
             uiManager.setUndoRedoButtonStates();
 
             var forceRefresh = that.refreshPreview = function () { previewManager.refresh(true); };
@@ -1226,7 +1232,7 @@
         }, 0);
     };
 
-    function UIManager(postfix, panels, undoManager, previewManager, commandManager, helpOptions, getString) {
+    function UIManager(postfix, panels, undoManager, previewManager, commandManager, helpOptions, getString, keyboardOptions) {
 
         var inputBox = panels.input,
             buttons = {}; // buttons.undo, buttons.link, etc. The actual DOM elements.
@@ -1241,7 +1247,7 @@
         util.addEvent(inputBox, keyEvent, function (key) {
 
             // Check to see if we have a button key and, if so execute the callback.
-            if ((key.ctrlKey || key.metaKey) && !key.altKey && !key.shiftKey) {
+            if (isCommandKey(key) && !key.altKey && !key.shiftKey) {
 
                 var keyCode = key.charCode || key.keyCode;
                 var keyCodeStr = String.fromCharCode(keyCode).toLowerCase();
@@ -1324,6 +1330,27 @@
                     return false;
                 }
             });
+        }
+        
+        
+        /**
+         * Returns true if the key provided should be treated as a command.
+         *
+         * If keyboardOptions.detectPlatform is true, the command modifier key
+         * is limited to the one most relevant to the platform, otherwise both
+         * meta and ctrl are allowed.
+         *
+         * @param {!Event} key
+         * @return {boolean}
+         */
+        function isCommandKey(key) {
+           if (keyboardOptions.detectPlatform) {
+              if (uaSniffed.isMac) {
+                  return key.metaKey;
+              }
+              return key.ctrlKey;
+           }
+           return key.ctrlKey || key.metaKey;
         }
 
 
